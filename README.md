@@ -115,6 +115,10 @@ python terminal.py --local         # usa seu Ollama local (nada vai p/ nuvem)
 
 Comandos dentro do terminal: `temas` · `modo comparar|lula|flavio` · `historico` · `sair`
 
+Exemplo (modo comparar + Ollama local):
+
+![Exemplo no terminal](screenshots/terminal.png)
+
 ## Uso — web (Flask)
 
 ```bash
@@ -124,6 +128,10 @@ python app.py
 ```
 
 Na página, marque **"Usar Ollama local"** para redação via modelo da sua máquina.
+
+Exemplo (respostas lado a lado + leitura da conselheira):
+
+![Exemplo na interface web](screenshots/web.png)
 
 API JSON:
 
