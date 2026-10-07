@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conselheira 2026 — Planos de Governo (Lula x Flávio Bolsonaro)</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --acc:#22c55e; --acc2:#38bdf8; --txt:#e2e8f0; --mut:#94a3b8; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--txt); }
+  header { padding:20px; text-align:center; border-bottom:1px solid #334155; }
+  header h1 { margin:0 0 6px; font-size:1.4rem; }
+  header p { margin:4px 0; color:var(--mut); font-size:.9rem; }
+  header a { color:var(--acc2); }
+  .badge { display:inline-block; padding:2px 10px; border-radius:999px; font-size:.75rem; margin:2px;
+           background:#052e16; color:#86efac; border:1px solid #166534; }
+  .badge.off { background:#3f3f46; color:#d4d4d8; border-color:#52525b; }
+  main { max-width:900px; margin:0 auto; padding:16px; }
+  .controls { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; align-items:center; }
+  select, input[type=text] { background:#0b1220; color:var(--txt); border:1px solid #334155; border-radius:8px; padding:10px; }
+  #pergunta { flex:1; min-width:220px; }
+  button { background:var(--acc); border:none; color:#052e16; font-weight:700; border-radius:8px; padding:10px 16px; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--txt); border:1px solid #475569; font-weight:400; }
+  .temas { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 4px; }
+  .temas button { background:#0b1220; color:var(--acc2); border:1px solid #155e75; font-weight:400; font-size:.8rem; padding:6px 10px; }
+  #chat { display:flex; flex-direction:column; gap:12px; margin-top:12px; }
+  .msg-user { align-self:flex-end; background:#164e63; padding:10px 14px; border-radius:12px 12px 2px 12px; max-width:85%; }
+  .card { background:var(--card); border:1px solid #334155; border-radius:12px; padding:14px; }
+  .card h3 { margin:0 0 8px; font-size:1rem; }
+  .card h3 small { color:var(--mut); font-weight:400; }
+  .card p { white-space:pre-wrap; line-height:1.5; overflow-wrap:break-word; word-wrap:break-word; word-break:normal; hyphens:auto; }
+  .via { font-size:.72rem; color:var(--mut); }
+  details { margin-top:8px; font-size:.82rem; color:#cbd5e1; }
+  details summary { cursor:pointer; color:var(--acc2); }
+  blockquote { border-left:3px solid var(--acc); margin:8px 0; padding:6px 10px; color:#d1fae5; font-size:.85rem; overflow-wrap:break-word; word-wrap:break-word; word-break:normal; }
+  .msg-user { align-self:flex-end; background:#164e63; padding:10px 14px; border-radius:12px 12px 2px 12px; max-width:85%; overflow-wrap:break-word; }
+  footer { text-align:center; color:var(--mut); font-size:.78rem; padding:20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🗳️ Conselheira 2026 — Lula × Flávio Bolsonaro</h1>
+  <p>Respostas baseadas <strong>exclusivamente</strong> nos planos oficiais registrados no TSE.</p>
+  <p>
+    <a href="https://www.tse.jus.br/eleicoes/eleicoes-2026-content/propostas-de-governo-dos-candidatos-ao-cargo-de-presidente-da-republica-eleicoes-2026/lula-propostas-de-governo" target="_blank">Plano Lula (84 p.)</a>
+    ·
+    <a href="https://www.tse.jus.br/eleicoes/eleicoes-2026-content/propostas-de-governo-dos-candidatos-ao-cargo-de-presidente-da-republica-eleicoes-2026/flavio-bolsonaro" target="_blank">Plano Flávio Bolsonaro (76 p.)</a>
+  </p>
+  <div>
+    {% if ia_ativa %}<span class="badge">IA ativada (redação por LLM + citações)</span>
+    {% else %}<span class="badge off">Modo local (busca por trechos literais — defina OPENAI_API_KEY ou GEMINI_API_KEY p/ ativar IA)</span>{% endif %}
+    {% if ollama_ativo %}<span class="badge">🦙 Ollama: {{ ollama_ativo }}</span>
+    {% else %}<span class="badge off">🦙 Ollama indisponível</span>{% endif %}
+  </div>
+</header>
+<main>
+  <div class="controls">
+    <select id="modo">
+      <option value="comparar" selected>Comparar os dois</option>
+      <option value="lula">Só Lula</option>
+      <option value="flavio">Só Flávio Bolsonaro</option>
+    </select>
+    <input id="pergunta" type="text" placeholder="Ex.: O que cada um propõe para a saúde?" autocomplete="off">
+    <button onclick="enviar()">Perguntar</button>
+    <button class="ghost" onclick="limpar()">Limpar</button>
+  </div>
+  <div class="controls" style="margin-top:0">
+    <label style="font-size:.85rem; color:var(--mut); display:flex; gap:6px; align-items:center;">
+      <input type="checkbox" id="usar_ollama" {% if ollama_ativo %}checked{% endif %} {% if not ollama_ativo %}disabled{% endif %}>
+      Usar Ollama local {% if ollama_ativo %}({{ ollama_ativo }}){% else %}(indisponível){% endif %} — nada vai para a nuvem
+    </label>
+  </div>
+  <div class="temas">
+    {% for tema, pergunta in temas %}
+    <button onclick="usarTema(this)" data-p="{{ pergunta }}">💡 {{ tema }}</button>
+    {% endfor %}
+  </div>
+  <div id="chat"></div>
+</main>
+<footer>
+  Projeto educacional. Não faz propaganda eleitoral — apenas cita os documentos oficiais do TSE.<br>
+  Terminal: <code>python terminal.py</code> · Web: <code>python app.py</code>
+</footer>
+<script>
+const chat = document.getElementById('chat');
+const input = document.getElementById('pergunta');
+input.addEventListener('keydown', e => { if (e.key === 'Enter') enviar(); });
+function usarTema(btn){ input.value = btn.dataset.p; enviar(); }
+function addUser(t){
+  const d = document.createElement('div'); d.className='msg-user'; d.textContent = t; chat.appendChild(d);
+}
+function addCard(item){
+  const d = document.createElement('div'); d.className='card';
+  const fontes = (item.fontes||[]).map(f =>
+    `<blockquote><b>p. ${f.paginas}</b> — “${escapeHtml(f.trecho)}”</blockquote>`).join('');
+  const tse = item.fontes && item.fontes[0] ? item.fontes[0].tse_url : '#';
+  d.innerHTML = `<h3>${escapeHtml(item.candidato)} <small>${escapeHtml(item.partido||'')}</small></h3>
+    <p>${escapeHtml(item.resposta)}</p>
+    <span class="via">via: ${escapeHtml(item.via)}</span>
+    <details><summary>Ver fontes (${(item.fontes||[]).length}) + link TSE</summary>${fontes}
+    <p><a href="${tse}" target="_blank">Abrir página do TSE</a></p></details>`;
+  chat.appendChild(d);
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+async function enviar(){
+  const pergunta = input.value.trim(); if(!pergunta) return;
+  const modo = document.getElementById('modo').value;
+  const usar_ollama = document.getElementById('usar_ollama').checked;
+  addUser(pergunta); input.value='';
+  const load = document.createElement('div'); load.className='card'; load.textContent='⏳ Buscando nos planos oficiais…';
+  chat.appendChild(load); load.scrollIntoView({behavior:'smooth'});
+  try {
+    const r = await fetch('/api/perguntar', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({pergunta, modo, usar_ollama})});
+    const j = await r.json(); load.remove();
+    if (j.erro) { alert(j.erro); return; }
+    (j.respostas||[]).forEach(addCard);
+    if (j.conselheira && j.conselheira.texto) {
+      const d = document.createElement('div'); d.className='card';
+      d.innerHTML = `<h3>🔮 Leitura da conselheira</h3><p>${escapeHtml(j.conselheira.texto)}</p>`;
+      chat.appendChild(d);
+    }
+  } catch(e){ load.textContent = 'Erro de rede: ' + e; }
+  window.scrollTo(0, document.body.scrollHeight);
+}
+async function limpar(){ chat.innerHTML=''; await fetch('/api/limpar',{method:'POST'}); }
+</script>
+</body>
+</html>

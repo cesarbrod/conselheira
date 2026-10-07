@@ -1,0 +1,2 @@
+Flask>=3.0
+PyMuPDF>=1.23
