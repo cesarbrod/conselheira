@@ -164,3 +164,21 @@ Projeto **educacional**, sem propaganda eleitoral e sem juízo partidário. As
 respostas são geradas **apenas** a partir dos documentos oficiais — trechos,
 páginas e links do TSE acompanham cada resposta. **Confira sempre o PDF
 original no portal do TSE** antes de formar sua opinião ou compartilhar.
+
+## Histórico de alterações recentes
+
+- **Sintonia da síntese (grounding)** — trava de termo-âncora na busca (palavra
+  genérica como "proteção" sozinha não valida mais chunk de outro assunto);
+  veredito por plano (`encontrado` / `nao_encontrado`, também na API);
+  resposta negativa padronizada sem citar páginas; prompt RAG sem vazar
+  mecânica interna ("trechos fornecidos") e sem plural indevido ("os planos"
+  no modo individual); conselheira recebe a situação apurada como fato e é
+  proibida de generalizar entre planos (vereditos opostos = divergência);
+  9 testes dourados offline em `test_chatbot.py`.
+- **Formatação das respostas** — terminal respeita a largura real da tela sem
+  cortar palavras; cortes de texto (1500/600 chars) nunca partem palavra no
+  meio; leitura da conselheira em texto puro (sem "Linha 1…"); CSS da web com
+  quebra segura por palavra.
+- **Documentação** — README com instalação do Ollama e modelos locais,
+  exemplos com screenshots (`screenshots/terminal.png`, `screenshots/web.png`)
+  e instruções para uso opcional de modelos em nuvem via API keys.
