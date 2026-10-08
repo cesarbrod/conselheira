@@ -313,5 +313,34 @@ class TestEquivalencia(unittest.TestCase):
             self.assertNotIn("Você gostaria", item["resposta"])
 
 
+class TestTemasSugeridos(unittest.TestCase):
+    ESPERADO = {
+        "Economia e impostos": ("encontrado", "encontrado"),
+        "Segurança pública": ("encontrado", "encontrado"),
+        "Saúde e SUS": ("encontrado", "encontrado"),
+        "Educação e alfabetização": ("encontrado", "encontrado"),
+        "Aposentadoria e idosos": ("encontrado", "encontrado"),
+        "Salário mínimo": ("encontrado", "encontrado"),
+        "Programas sociais": ("encontrado", "encontrado"),
+        "Trabalho (6x1, apps)": ("encontrado", "encontrado"),
+        "Meio ambiente / Amazônia": ("encontrado", "encontrado"),
+        "Democracia e instituições": ("encontrado", "encontrado"),
+        # Divergência honesta: Lula cobre, Flávio não (ponte p/ saúde).
+        "Farmácia Popular": ("encontrado", "nao_encontrado"),
+        "Reforma do Estado": ("encontrado", "encontrado"),
+    }
+
+    def test_sugestoes_devolvem_conteudo(self):
+        import chatbot as _cb
+        titulos = [t for t, _ in _cb.TEMAS_SUGERIDOS]
+        self.assertEqual(set(titulos), set(self.ESPERADO))
+        for tema, pergunta in _cb.TEMAS_SUGERIDOS:
+            with self.subTest(tema=tema):
+                r = responder(pergunta, modo="comparar", usar_ia=False)
+                v = {i["candidato_id"]: i["veredito"] for i in r["respostas"]}
+                self.assertEqual(
+                    (v["lula"], v["flavio"]), self.ESPERADO[tema])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -167,6 +167,11 @@ original no portal do TSE** antes de formar sua opinião ou compartilhar.
 
 ## Histórico de alterações recentes
 
+- **Temas sugeridos auditados** — 12 sugestões com veredito apurado (saúde+SUS,
+  aposentadoria e idosos, salário mínimo, programas sociais, Farmácia Popular…);
+  pergunta-morta ("não trata") virou divergência honesta ou foi reformulada;
+  teste trava o veredito esperado de cada sugestão; 22 testes dourados
+  offline em `test_chatbot.py`.
 - **Equivalência de temas** — famílias morfológicas (alfabetização ↔
   alfabetizar/alfabetizada, professor ↔ docente…) valem como o mesmo tema na
   busca; termo específico ausente gera ponte honesta ("não menciona 'merenda'

@@ -57,13 +57,16 @@ CANDIDATOS = {
 TEMAS_SUGERIDOS = [
     ("Economia e impostos", "O que cada candidato propõe para economia e impostos?"),
     ("Segurança pública", "O que cada candidato propõe para segurança pública?"),
-    ("Saúde", "O que cada candidato propõe para a saúde (SUS, filas, telemedicina)?"),
-    ("Educação", "O que cada candidato propõe para educação e alfabetização?"),
+    ("Saúde e SUS", "O que cada candidato propõe para a saúde e o SUS?"),
+    ("Educação e alfabetização", "O que cada candidato propõe para educação e alfabetização?"),
+    ("Aposentadoria e idosos", "O que cada candidato propõe para aposentadoria e idosos?"),
+    ("Salário mínimo", "O que cada candidato propõe para o salário mínimo?"),
+    ("Programas sociais", "O que cada candidato propõe para programas sociais?"),
     ("Trabalho (6x1, apps)", "O que cada candidato propõe sobre jornada de trabalho e trabalhadores de aplicativos?"),
     ("Meio ambiente / Amazônia", "O que cada candidato propõe para meio ambiente e Amazônia?"),
-    ("Programas sociais", "Os candidatos vão manter os programas sociais? O que muda?"),
+    ("Democracia e instituições", "O que cada candidato propõe sobre democracia e instituições?"),
+    ("Farmácia Popular", "O que cada candidato propõe para a Farmácia Popular?"),
     ("Reforma do Estado", "O que cada candidato propõe sobre ministérios, reforma administrativa e teto de gastos?"),
-    ("STF / instituições", "O que o plano de Flávio Bolsonaro propõe sobre o STF? E o de Lula sobre democracia?"),
 ]
 
 def _sem_acento(texto: str) -> str:
