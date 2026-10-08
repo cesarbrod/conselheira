@@ -104,7 +104,10 @@ def _tokenizar(texto: str) -> list[str]:
 IGNORAR_NA_PERGUNTA = _norm_set(
     """candidato candidata candidatos cada plano planos governo governos proposta propostas
     propoe propoem propoem-se diz dizem fala falam preve prevê tema temas sobre quais
-    qual como presidente brasil brasileiro brasileira brasileiros"""
+    qual como presidente brasil brasileiro brasileira brasileiros algum alguma alguns
+    algumas nenhum nenhuma todo toda todos todas outro outra outros outras mesmo mesma
+    proprios proprias tal tais algo alguem ninguem tudo nada quanto quanta quantos
+    quantas menciona mencionam garante garantem traz trazem melhor melhores"""
 )
 
 
@@ -289,6 +292,9 @@ def _prompt_rag(pergunta: str, contexto: str, candidato_nome: str) -> str:
         f"(sintetize as principais propostas, sem transcrever trechos longos e sem listas extensas); "
         f"no MÁXIMO {LIMITE_RESPOSTA} caracteres; se o contexto não contiver a resposta, "
         f"diga isso claramente e não invente; não faça propaganda nem juízo de valor; "
+        f"fale sempre como 'o plano de {candidato_nome}' — NUNCA mencione 'trechos', "
+        f"'contexto fornecido/enviado' ou outra mecânica interna, e nunca diga 'os planos' "
+        f"(responda apenas por este plano); "
         f"não inclua seção de fontes (ela será acrescentada depois).\n\n"
         f"CONTEXTO:\n{contexto}\n\nPERGUNTA: {pergunta}"
     )
@@ -498,7 +504,20 @@ def _limitar_texto(texto: str) -> str:
 LIMITE_CONSELHEIRA = 600  # teto de caracteres da leitura em 3 linhas
 
 
-def _prompt_conselheira(resumos: str, comparativo: bool) -> str:
+def _bloco_vereditos(itens: list[dict]) -> str:
+    """Situação apurada nos documentos: fato determinístico, não opinião da LLM."""
+    linhas = []
+    for i in itens:
+        curto = CANDIDATOS[i["candidato_id"]]["curto"]
+        if i.get("veredito") == "nao_encontrado":
+            linhas.append(f"- {curto}: TEMA NÃO ENCONTRADO no plano")
+        else:
+            pags = ", ".join(f["paginas"] for f in i.get("fontes", [])) or "—"
+            linhas.append(f"- {curto}: TEMA ENCONTRADO (páginas {pags})")
+    return "\n".join(linhas)
+
+
+def _prompt_conselheira(resumos: str, comparativo: bool, situacao: str = "") -> str:
     if comparativo:
         tarefa = ("Em EXATAMENTE 3 linhas, como uma conselheira experiente em política brasileira, "
                   "dê sua leitura comparativa das respostas: primeira linha = onde os dois planos convergem; "
@@ -511,17 +530,23 @@ def _prompt_conselheira(resumos: str, comparativo: bool) -> str:
                   "terceira linha = o ponto de atenção para o eleitor. ")
     return (tarefa + f"IMPORTANTE: entregue apenas o texto das 3 linhas, uma por linha. "
             f"NÃO escreva 'Linha 1', 'Linha 2', números, marcadores ou negrito antes delas. "
+            f"REGRAS DE FIDELIDADE (obrigatórias): a SITUAÇÃO abaixo é fato apurado nos "
+            f"documentos — respeite-a estritamente; se os vereditos forem opostos, isso É a "
+            f"divergência central (diga qual plano trata do tema e qual não trata); é PROIBIDO "
+            f"afirmar sobre um plano algo que o veredito ou o resumo dele nega; cada frase "
+            f"deve decorrer diretamente de um dos resumos. "
             f"Responda em português, no máximo {LIMITE_CONSELHEIRA} caracteres no total, "
-            f"sem propaganda e sem juízo partidário.\n\nRESPOSTAS DOS PLANOS:\n{resumos}")
+            f"sem propaganda e sem juízo partidário.\n\nSITUAÇÃO APURADA:\n{situacao}"
+            f"\n\nRESPOSTAS DOS PLANOS:\n{resumos}")
 
 
 def _limpar_rotulo_conselheira(linha: str) -> str:
     """Remove prefixos que o LLM insiste em pôr: 'Linha 1:', '1.', '- ', etc."""
-    linha = linha.strip(" \t-•*")
+    linha = linha.strip(" \t-•*=")
     linha = re.sub(r"^\*{0,2}\s*linha\s*\d+\s*[:.\-–—_)}\]]*\s*\*{0,2}\s*",
                    "", linha, flags=re.IGNORECASE).strip()
     linha = re.sub(r"^\d+\s*[:.\-–)]\s*", "", linha).strip()
-    linha = re.sub(r"^[-*•>]+\s*", "", linha).strip()
+    linha = re.sub(r"^[-*•>=]+\s*", "", linha).strip()
     return linha
 
 
@@ -547,21 +572,34 @@ def _opniao_local(itens: list[dict]) -> str:
         a, b = itens[0], itens[1]
         ca = CANDIDATOS[a["candidato_id"]]["curto"]
         cb = CANDIDATOS[b["candidato_id"]]["curto"]
-        if a["fontes"] and b["fontes"]:
-            l1 = f"Leitura automática: os dois planos tratam do tema — compare as páginas citadas de cada lado."
-        elif a["fontes"]:
-            l1 = f"Leitura automática: só o plano de {ca} traz conteúdo direto sobre o tema."
-        elif b["fontes"]:
-            l1 = f"Leitura automática: só o plano de {cb} traz conteúdo direto sobre o tema."
+        va = a.get("veredito") == "nao_encontrado"
+        vb = b.get("veredito") == "nao_encontrado"
+        if not va and not vb:
+            l1 = "Leitura automática: os dois planos tratam do tema — compare as páginas citadas de cada lado."
+        elif va and not vb:
+            l1 = f"Leitura automática: só o plano de {cb} traz conteúdo direto sobre o tema; o de {ca} não trata."
+        elif vb and not va:
+            l1 = f"Leitura automática: só o plano de {ca} traz conteúdo direto sobre o tema; o de {cb} não trata."
         else:
             l1 = "Leitura automática: nenhum dos planos trata do tema de forma direta."
-        ta = ", ".join(_termos_distintivos(a["fontes"], b["fontes"])) or "—"
-        tb = ", ".join(_termos_distintivos(b["fontes"], a["fontes"])) or "—"
-        l2 = f"O vocabulário entrega a ênfase de cada lado — {ca}: {ta}; {cb}: {tb}."
+        ta = ", ".join(_termos_distintivos(a["fontes"], b["fontes"])) if a["fontes"] else ""
+        tb = ", ".join(_termos_distintivos(b["fontes"], a["fontes"])) if b["fontes"] else ""
+        if ta and tb:
+            l2 = f"O vocabulário entrega a ênfase de cada lado — {ca}: {ta}; {cb}: {tb}."
+        elif ta:
+            l2 = f"O vocabulário entrega a ênfase do plano — {ca}: {ta}."
+        elif tb:
+            l2 = f"O vocabulário entrega a ênfase do plano — {cb}: {tb}."
+        else:
+            l2 = "Sem trechos correspondentes, não há vocabulário a comparar."
         l3 = "Para decidir, leia os trechos originais nas páginas citadas acima."
         return f"{l1}\n{l2}\n{l3}"
     item = itens[0]
     c = CANDIDATOS[item["candidato_id"]]["curto"]
+    if item.get("veredito") == "nao_encontrado" or not item["fontes"]:
+        return (f"Leitura automática: o plano de {c} não trata do tema nos trechos localizados.\n"
+                f"Tente reformular a pergunta com outro tema.\n"
+                f"Para conferir, consulte o PDF oficial no portal do TSE.")
     pags = item["fontes"][0]["paginas"] if item["fontes"] else "—"
     l1 = f"Leitura automática: o plano de {c} trata do tema (p. {pags})."
     termos = ", ".join(_termos_distintivos(item["fontes"], [])) or "—"
@@ -580,7 +618,7 @@ def _opniao_conselheira(itens: list[dict], usar_ia: bool, usar_ollama: bool) -> 
     )
     texto, via = None, "busca-local"
     if usar_ia:
-        prompt = _prompt_conselheira(resumos, comparativo)
+        prompt = _prompt_conselheira(resumos, comparativo, _bloco_vereditos(itens))
         if usar_ollama:
             texto = _ollama_prompt(prompt)
             if texto:
@@ -603,11 +641,79 @@ def _opniao_conselheira(itens: list[dict], usar_ia: bool, usar_ollama: bool) -> 
     return {"texto": texto, "via": via}
 
 
+def _singularizar(token: str) -> list[str]:
+    """Variações de singular p/ o português (impostos→imposto, animais→animal)."""
+    saidas = []
+    if len(token) > 4 and token.endswith("s") and not token.endswith("ss"):
+        if token.endswith(("ais", "eis", "ois", "uis")):
+            saidas.append(token[:-2] + "l")  # animais -> animal
+        else:
+            saidas.append(token[:-1])
+    return saidas
+
+
+def _termos_essenciais(pergunta: str, base: "BaseConhecimento | None" = None, k: int = 1) -> set[str]:
+    """Termo-âncora da pergunta (+sinônimos/singulares) que um trecho precisa conter.
+
+    Só o termo mais raro vale como trava: palavras genéricas ("proteção")
+    sozinhas não validam chunk de outro assunto ("proteger a sociedade"
+    ≠ proteção animal). k=1 por padrão; aumente só se um tema legítimo exigir.
+    """
+    toks = [t for t in _tokenizar(pergunta) if t not in IGNORAR_NA_PERGUNTA]
+    if not toks:
+        return set()
+    if base is not None:
+        # termo ausente nos docs (nome próprio, neologismo) é o mais distintivo
+        toks = sorted(set(toks), key=lambda t: -base._idf.get(t, 99.0))
+    essenciais: set[str] = set(toks[:k] if len(toks) > k else toks)
+    essenciais.update(*[_singularizar(t) for t in list(essenciais)])
+    for t in list(essenciais):
+        essenciais.update(SINONIMOS.get(t, []))
+    return essenciais
+
+
+def _cobre_essencial(texto: str, essenciais: set[str]) -> bool:
+    if not essenciais:
+        return False
+    return bool(set(_tokenizar(texto)) & essenciais)
+
+
+def _resposta_negativa(meta: dict) -> str:
+    return (f"O plano de governo de {meta['nome']} não trata desse tema nos trechos "
+            f"localizados do documento oficial do TSE. Tente reformular — ex.: pergunte "
+            f"sobre saúde, educação, segurança ou economia.")
+
+
+# A LLM declinou ("não há nos trechos") -> vale como NÃO ENCONTRADO.
+_PADRAO_NEGACAO = re.compile(
+    r"(n[ãa]o\s+(menciona|mencionam|trata|tratam|h[áa]|existe|existem|aborda|abordam|"
+    r"cont[ée]m|prev[êe]|apresenta|detalha|traz|cobre|inclui|contempla|encontrei|"
+    r"localizei|consta|h[áa]\s+men[çc][ãa]o)|nenhum\s+(dos\s+)?trechos?|"
+    r"sem\s+men[çc][ãa]o|nada\s+(sobre|consta))",
+    re.IGNORECASE,
+)
+
+
 def responder_candidato(pergunta: str, candidato_id: str, usar_ia: bool = True,
                         top_k: int = 3, usar_ollama: bool = False) -> dict:
     base = get_base()
     meta = CANDIDATOS[candidato_id]
     trechos = base.buscar(pergunta, candidato_id=candidato_id, top_k=top_k)
+    # Trava de termo essencial: só valem chunks com o termo raro da pergunta
+    # ("proteção" sozinha não valida chunk sobre "proteger a sociedade").
+    essenciais = _termos_essenciais(pergunta, base)
+    trechos = [t for t in trechos if _cobre_essencial(t.texto, essenciais)]
+    veredito = "encontrado" if trechos else "nao_encontrado"
+    if not trechos:
+        return {
+            "candidato_id": candidato_id,
+            "candidato": meta["nome"],
+            "partido": meta["partido"],
+            "resposta": _resposta_negativa(meta),
+            "via": "busca-local",
+            "veredito": veredito,
+            "fontes": [],
+        }
     contexto = "\n\n---\n\n".join(
         f"[p. {t.pag_inicio}-{t.pag_fim}]\n{t.texto[:2000]}" for t in trechos
     )
@@ -625,6 +731,18 @@ def responder_candidato(pergunta: str, candidato_id: str, usar_ia: bool = True,
             texto = _chamar_gemini(pergunta, contexto, meta["nome"])
             if texto:
                 via = "gemini"
+    if texto and _PADRAO_NEGACAO.search(texto):
+        # A própria LLM declarou que o contexto não contém a resposta:
+        # padroniza (sem vazar "trechos fornecidos") e sem citar páginas.
+        return {
+            "candidato_id": candidato_id,
+            "candidato": meta["nome"],
+            "partido": meta["partido"],
+            "resposta": _resposta_negativa(meta),
+            "via": via,
+            "veredito": "nao_encontrado",
+            "fontes": [],
+        }
     if not texto:
         texto = _resposta_extrativa(pergunta, trechos, meta["nome"])
     texto = _finalizar_resposta(texto, meta, trechos)
@@ -634,6 +752,7 @@ def responder_candidato(pergunta: str, candidato_id: str, usar_ia: bool = True,
         "partido": meta["partido"],
         "resposta": texto,
         "via": via,
+        "veredito": veredito,
         "fontes": [
             {"paginas": f"{t.pag_inicio}-{t.pag_fim}",
              "trecho": t.texto[:500] + ("…" if len(t.texto) > 500 else ""),
