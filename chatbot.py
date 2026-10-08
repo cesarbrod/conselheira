@@ -528,16 +528,41 @@ def _prompt_conselheira(resumos: str, comparativo: bool, situacao: str = "") -> 
                   "dê sua leitura da resposta: primeira linha = o essencial da proposta; "
                   "segunda linha = o ponto forte; "
                   "terceira linha = o ponto de atenção para o eleitor. ")
-    return (tarefa + f"IMPORTANTE: entregue apenas o texto das 3 linhas, uma por linha. "
-            f"NÃO escreva 'Linha 1', 'Linha 2', números, marcadores ou negrito antes delas. "
-            f"REGRAS DE FIDELIDADE (obrigatórias): a SITUAÇÃO abaixo é fato apurado nos "
-            f"documentos — respeite-a estritamente; se os vereditos forem opostos, isso É a "
-            f"divergência central (diga qual plano trata do tema e qual não trata); é PROIBIDO "
-            f"afirmar sobre um plano algo que o veredito ou o resumo dele nega; cada frase "
-            f"deve decorrer diretamente de um dos resumos. "
-            f"Responda em português, no máximo {LIMITE_CONSELHEIRA} caracteres no total, "
-            f"sem propaganda e sem juízo partidário.\n\nSITUAÇÃO APURADA:\n{situacao}"
-            f"\n\nRESPOSTAS DOS PLANOS:\n{resumos}")
+    return (
+        f"SITUAÇÃO APURADA NOS DOCUMENTOS (fato — prevalece sobre qualquer impressão "
+        f"dos resumos, respeite estritamente):\n{situacao}\n\n"
+        + tarefa +
+        f"IMPORTANTE: entregue apenas o texto das 3 linhas, uma por linha. "
+        f"NÃO escreva 'Linha 1', 'Linha 2', números, marcadores ou negrito antes delas. "
+        f"REGRAS DE FIDELIDADE (obrigatórias): se um lado está como TEMA NÃO ENCONTRADO, "
+        f"é PROIBIDO dizer que 'ambos' ou 'os dois' mencionam, tratam, propõem ou apresentam "
+        f"qualquer conteúdo sobre o tema — exemplo de ERRO PROIBIDO: 'Ambos mencionam leis "
+        f"e decretos' quando a situação diz que um plano NÃO ENCONTRADO; vereditos opostos "
+        f"SÃO a divergência central (diga qual plano trata do tema e qual não trata); cada "
+        f"frase deve decorrer diretamente de um dos resumos. "
+        f"Responda em português, no máximo {LIMITE_CONSELHEIRA} caracteres no total, "
+        f"sem propaganda e sem juízo partidário.\n\nRESPOSTAS DOS PLANOS:\n{resumos}"
+    )
+
+
+# Afirmação de conteúdo compartilhado ("ambos mencionam/tratam/..."):
+# com vereditos opostos, isso é alucinação — a saída da LLM é descartada.
+_VERBOS_CONTEUDO = (
+    r"mencionam|tratam|trazem|prop[õo]em|apresentam|defendem|citam|"
+    r"prev[eê]em|incluem|abordam|contemplam|destacam|prev[eê]|traz"
+)
+_PADRAO_CONVERGENCIA_FALSA = re.compile(
+    rf"(?i)\b(ambos|os dois|as duas)\b[^.\n]{{0,80}}\b({_VERBOS_CONTEUDO})\b"
+    rf"|\b({_VERBOS_CONTEUDO})\b[^.\n]{{0,80}}\b(ambos|os dois|as duas)\b"
+)
+
+
+def _conselheira_contradiz_vereditos(texto: str, itens: list[dict]) -> bool:
+    """True se o texto afirma conteúdo comum com um lado NÃO ENCONTRADO."""
+    if len(itens) < 2:
+        return False
+    opostos = {i.get("veredito") for i in itens[:2]} == {"encontrado", "nao_encontrado"}
+    return bool(opostos and _PADRAO_CONVERGENCIA_FALSA.search(texto))
 
 
 def _limpar_rotulo_conselheira(linha: str) -> str:
@@ -597,8 +622,8 @@ def _opniao_local(itens: list[dict]) -> str:
     item = itens[0]
     c = CANDIDATOS[item["candidato_id"]]["curto"]
     if item.get("veredito") == "nao_encontrado" or not item["fontes"]:
-        return (f"Leitura automática: o plano de {c} não trata do tema nos trechos localizados.\n"
-                f"Tente reformular a pergunta com outro tema.\n"
+        return (f"Leitura automática: o plano de {c} não trata do tema.\n"
+                f"Não há vocabulário a comparar para este plano.\n"
                 f"Para conferir, consulte o PDF oficial no portal do TSE.")
     pags = item["fontes"][0]["paginas"] if item["fontes"] else "—"
     l1 = f"Leitura automática: o plano de {c} trata do tema (p. {pags})."
@@ -633,6 +658,11 @@ def _opniao_conselheira(itens: list[dict], usar_ia: bool, usar_ollama: bool) -> 
                     via = "gemini"
     if not texto:
         texto = _opniao_local(itens)
+    elif _conselheira_contradiz_vereditos(texto, itens):
+        # A LLM afirmou conteúdo comum com um lado NÃO ENCONTRADO
+        # (ex.: "Ambos mencionam leis...") -> descarta e usa leitura local,
+        # que segue os vereditos deterministicamente.
+        texto, via = _opniao_local(itens), "busca-local (revisão)"
     linhas = [_limpar_rotulo_conselheira(l) for l in texto.strip().splitlines()]
     linhas = [l for l in linhas if l]
     texto = "\n".join(linhas[:3])
@@ -679,9 +709,8 @@ def _cobre_essencial(texto: str, essenciais: set[str]) -> bool:
 
 
 def _resposta_negativa(meta: dict) -> str:
-    return (f"O plano de governo de {meta['nome']} não trata desse tema nos trechos "
-            f"localizados do documento oficial do TSE. Tente reformular — ex.: pergunte "
-            f"sobre saúde, educação, segurança ou economia.")
+    return (f"O plano de governo de {meta['nome']} não trata desse tema no "
+            f"documento oficial registrado no TSE.")
 
 
 # A LLM declinou ("não há nos trechos") -> vale como NÃO ENCONTRADO.

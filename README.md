@@ -167,6 +167,11 @@ original no portal do TSE** antes de formar sua opinião ou compartilhar.
 
 ## Histórico de alterações recentes
 
+- **Anti-alucinação na conselheira** — prompt com situação apurada em primeiro
+  plano + exemplo de erro proibido ("Ambos mencionam…" com um lado ausente);
+  validação determinística pós-LLM: convergência afirmada com vereditos
+  opostos descarta a saída e usa leitura local (`via: busca-local (revisão)`);
+  resposta negativa nunca sugere reformular a pergunta.
 - **Sintonia da síntese (grounding)** — trava de termo-âncora na busca (palavra
   genérica como "proteção" sozinha não valida mais chunk de outro assunto);
   veredito por plano (`encontrado` / `nao_encontrado`, também na API);
