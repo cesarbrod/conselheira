@@ -161,20 +161,26 @@ class TestValidacaoConselheira(unittest.TestCase):
                 self.assertFalse(_conselheira_contradiz_vereditos(
                     texto, self.ITENS_OPOSTOS))
 
-    def test_alucinacao_cai_para_revisao_local(self):
-        """Simula a LLM alucinando 'ambos mencionam' com Flávio ausente."""
+    def test_vereditos_opostos_nao_chamam_llm(self):
+        """Com um lado ausente, a conselheira é determinística (sem LLM).
+
+        Regressão: a LLM alucinava "Ambos buscam/mencionam..." mesmo com
+        Flávio NÃO ENCONTRADO — nenhum verbo escaparia se a LLM nem é chamada.
+        """
+        chamadas_conselheira = []
         original = chatbot._ollama_prompt
 
-        def falsa_llm(prompt: str):
+        def stub(prompt: str):
             if "SITUAÇÃO APURADA" in prompt:
-                return ("Convergência: Ambos mencionam leis e decretos "
-                        "para proteção animal.\n"
+                chamadas_conselheira.append(prompt)
+                return ("Convergência: Ambos buscam a proteção dos animais, "
+                        "mas por caminhos diferentes.\n"
                         "Divergência: Nenhuma relevante.\n"
                         "Ponto de atenção: Ler os dois documentos.")
             return ("O plano de Luiz Inácio Lula da Silva prevê o ProPatinhas, "
                     "o SinPatinhas e a Lei AMAR para proteção animal.")
 
-        chatbot._ollama_prompt = falsa_llm
+        chatbot._ollama_prompt = stub
         try:
             r = responder(
                 "Algum dos planos fala sobre proteção aos animais?",
@@ -182,10 +188,46 @@ class TestValidacaoConselheira(unittest.TestCase):
             )
         finally:
             chatbot._ollama_prompt = original
+        self.assertEqual(chamadas_conselheira, [])
         cons = r["conselheira"]
-        self.assertIn("revisão", cons["via"])
-        self.assertNotIn("Ambos mencionam", cons["texto"])
+        self.assertEqual(cons["via"], "busca-local (veredito)")
+        self.assertNotIn("Ambos", cons["texto"])
         self.assertIn("Lula", cons["texto"])
+        self.assertIn("Flávio", cons["texto"])
+
+    def test_plano_unico_ausente_nao_chama_llm(self):
+        chamadas_conselheira = []
+        original = chatbot._ollama_prompt
+
+        def stub(prompt: str):
+            if "SITUAÇÃO APURADA" in prompt:
+                chamadas_conselheira.append(prompt)
+            return "Texto qualquer da LLM."
+            # (plano já barrado pela trava; só a conselheira importa aqui)
+
+        chatbot._ollama_prompt = stub
+        try:
+            r = responder(
+                "Algum dos planos fala sobre proteção aos animais?",
+                modo="flavio", usar_ia=True, usar_ollama=True,
+            )
+        finally:
+            chatbot._ollama_prompt = original
+        self.assertEqual(chamadas_conselheira, [])
+        self.assertEqual(r["conselheira"]["via"], "busca-local (veredito)")
+
+    def test_conteudo_dos_dois_lados_usa_llm(self):
+        """Sem ausência, a LLM continua sendo usada (sem bypass excessivo)."""
+        original = chatbot._ollama_prompt
+        chatbot._ollama_prompt = lambda prompt: ("Linha um.\nLinha dois.\nLinha três.")
+        try:
+            r = responder(
+                "O que cada candidato propõe para a saúde?",
+                modo="comparar", usar_ia=True, usar_ollama=True,
+            )
+        finally:
+            chatbot._ollama_prompt = original
+        self.assertTrue(r["conselheira"]["via"].startswith("ollama:"))
 
 
 if __name__ == "__main__":

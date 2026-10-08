@@ -167,6 +167,10 @@ original no portal do TSE** antes de formar sua opinião ou compartilhar.
 
 ## Histórico de alterações recentes
 
+- **Conselheira sem LLM quando falta conteúdo** — se qualquer lado está com
+  tema NÃO ENCONTRADO, a leitura é determinística (a LLM nem é chamada), pois
+  qualquer moldura "ambos convergem/divergem" vira alucinação; 14 testes
+  dourados offline em `test_chatbot.py`.
 - **Anti-alucinação na conselheira** — prompt com situação apurada em primeiro
   plano + exemplo de erro proibido ("Ambos mencionam…" com um lado ausente);
   validação determinística pós-LLM: convergência afirmada com vereditos

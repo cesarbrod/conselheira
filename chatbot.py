@@ -642,7 +642,13 @@ def _opniao_conselheira(itens: list[dict], usar_ia: bool, usar_ollama: bool) -> 
         for i in itens
     )
     texto, via = None, "busca-local"
-    if usar_ia:
+    if any(i.get("veredito") == "nao_encontrado" for i in itens):
+        # Ausência de conteúdo é fato apurado, não interpretação: a LLM só
+        # sintetiza quando há conteúdo (dos dois lados, ou do lado pedido).
+        # Sem isso, qualquer moldura "convergem/divergem" vira alucinação
+        # ("Ambos buscam/mencionam..." com um plano omisso).
+        texto, via = _opniao_local(itens), "busca-local (veredito)"
+    elif usar_ia:
         prompt = _prompt_conselheira(resumos, comparativo, _bloco_vereditos(itens))
         if usar_ollama:
             texto = _ollama_prompt(prompt)
