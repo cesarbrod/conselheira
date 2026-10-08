@@ -15,6 +15,7 @@ import unittest
 
 import chatbot
 from chatbot import (
+    _capitalizar_sentencas,
     _conselheira_contradiz_vereditos,
     _limpar_rotulo_conselheira,
     responder,
@@ -228,6 +229,45 @@ class TestValidacaoConselheira(unittest.TestCase):
         finally:
             chatbot._ollama_prompt = original
         self.assertTrue(r["conselheira"]["via"].startswith("ollama:"))
+
+
+class TestCapitalizacao(unittest.TestCase):
+    def test_frase_inicia_maiuscula(self):
+        self.assertEqual(
+            _capitalizar_sentencas(
+                "educação técnica e profissional são centrais para Flávio, "
+                "enquanto Lula destaca a infraestrutura e o piso salarial docente."
+            ),
+            "Educação técnica e profissional são centrais para Flávio, "
+            "enquanto Lula destaca a infraestrutura e o piso salarial docente.",
+        )
+
+    def test_nova_frase_maiuscula_e_abreviacao_protegida(self):
+        self.assertEqual(
+            _capitalizar_sentencas("ver p. 69 do plano. siga em frente. ex.: detalhe"),
+            "Ver p. 69 do plano. Siga em frente. ex.: detalhe",
+        )
+
+    def test_conselheira_sem_minuscula_inicial(self):
+        original = chatbot._ollama_prompt
+        chatbot._ollama_prompt = lambda prompt: (
+            "educação técnica é central para Flávio. lula destaca o piso docente.\n"
+            "segunda linha minúscula.\n"
+            "terceira linha minúscula."
+        )
+        try:
+            r = responder(
+                "O que cada candidato propõe para a educação?",
+                modo="comparar", usar_ia=True, usar_ollama=True,
+            )
+        finally:
+            chatbot._ollama_prompt = original
+        for linha in r["conselheira"]["texto"].splitlines():
+            primeira = re.search(r"[A-Za-zÀ-ÖØ-öø-ÿ]", linha)
+            self.assertTrue(
+                primeira and primeira.group(0).isupper(),
+                f"linha sem maiúscula inicial: {linha!r}",
+            )
 
 
 if __name__ == "__main__":

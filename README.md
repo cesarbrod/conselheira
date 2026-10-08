@@ -167,6 +167,9 @@ original no portal do TSE** antes de formar sua opinião ou compartilhar.
 
 ## Histórico de alterações recentes
 
+- **Capitalização gramatical** — toda frase começa com maiúscula (conselheira
+  e corpo das respostas), com proteção a abreviações ("p.", "ex.", "Sr.") e
+  decimais; 17 testes dourados offline em `test_chatbot.py`.
 - **Conselheira sem LLM quando falta conteúdo** — se qualquer lado está com
   tema NÃO ENCONTRADO, a leitura é determinística (a LLM nem é chamada), pois
   qualquer moldura "ambos convergem/divergem" vira alucinação; 14 testes

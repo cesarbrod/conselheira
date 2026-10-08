@@ -314,6 +314,7 @@ def _finalizar_resposta(texto: str, meta: dict, trechos: list["Trecho"]) -> str:
     # remove eventual linha de fontes que o modelo tenha incluído (será padronizada abaixo)
     texto = re.sub(r"(?im)^\s*(fontes?\s*:|plano de governo\s*,?\s*páginas?\s*).*$", "", texto).strip()
     texto = _limitar_texto(texto)
+    texto = _capitalizar_sentencas(texto)
     if trechos:
         texto = texto.rstrip() + "\n\n" + _linha_fontes(meta, trechos)
     return texto
@@ -575,6 +576,39 @@ def _limpar_rotulo_conselheira(linha: str) -> str:
     return linha
 
 
+_ABREVIATURAS = {"p", "pp", "ex", "sr", "sra", "dr", "dra", "vs", "cf",
+                 "etc", "art", "n", "no", "nos", "obs"}
+
+
+def _capitalizar_sentencas(texto: str) -> str:
+    """Cada frase começa com maiúscula (regra do português).
+
+    Protege abreviações ("p. 69", "ex.:", "Sr.") e decimais ("3.450"),
+    que não abrem sentença nova.
+    """
+    texto = texto.strip()
+    if not texto:
+        return texto
+    texto = re.sub(
+        r"^([^A-Za-zÀ-ÖØ-öø-ÿ]*)([a-zà-ú])",
+        lambda m: m.group(1) + m.group(2).upper(), texto, count=1,
+    )
+
+    def _rep(m: "re.Match") -> str:
+        ant = m.group("ant") or ""
+        if ant.lower() in _ABREVIATURAS:
+            return m.group(0)
+        proxima = re.match(r"[A-Za-zÀ-ÖØ-öø-ÿ]+", texto[m.start("letra"):])
+        if proxima and proxima.group(0).lower() in _ABREVIATURAS:
+            return m.group(0)
+        return ant + m.group("sep") + m.group("letra").upper()
+
+    return re.sub(
+        r"(?P<ant>[A-Za-zÀ-ÖØ-öø-ÿ]+)?(?P<sep>[.!?…]+[\"”'’)\]]*\s+)(?P<letra>[a-zà-ú])",
+        _rep, texto,
+    )
+
+
 def _termos_distintivos(fontes_a: list[dict], fontes_b: list[dict], k: int = 3) -> list[str]:
     """Termos de maior peso em A ausentes em B (leitura honesta sem IA)."""
     from collections import Counter
@@ -669,7 +703,8 @@ def _opniao_conselheira(itens: list[dict], usar_ia: bool, usar_ollama: bool) -> 
         # (ex.: "Ambos mencionam leis...") -> descarta e usa leitura local,
         # que segue os vereditos deterministicamente.
         texto, via = _opniao_local(itens), "busca-local (revisão)"
-    linhas = [_limpar_rotulo_conselheira(l) for l in texto.strip().splitlines()]
+    linhas = [_capitalizar_sentencas(_limpar_rotulo_conselheira(l))
+             for l in texto.strip().splitlines()]
     linhas = [l for l in linhas if l]
     texto = "\n".join(linhas[:3])
     if len(texto) > LIMITE_CONSELHEIRA:
