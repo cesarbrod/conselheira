@@ -167,6 +167,11 @@ original no portal do TSE** antes de formar sua opinião ou compartilhar.
 
 ## Histórico de alterações recentes
 
+- **Equivalência de temas** — famílias morfológicas (alfabetização ↔
+  alfabetizar/alfabetizada, professor ↔ docente…) valem como o mesmo tema na
+  busca; termo específico ausente gera ponte honesta ("não menciona 'merenda'
+  diretamente. Você gostaria de saber… para a educação?"); 21 testes dourados
+  offline em `test_chatbot.py`.
 - **Capitalização gramatical** — toda frase começa com maiúscula (conselheira
   e corpo das respostas), com proteção a abreviações ("p.", "ex.", "Sr.") e
   decimais; 17 testes dourados offline em `test_chatbot.py`.

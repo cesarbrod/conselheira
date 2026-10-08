@@ -140,6 +140,47 @@ SINONIMOS = {
 }
 
 
+# Famílias morfológicas: flexões do mesmo radical valem como o mesmo tema.
+# (Os planos escrevem "alfabetizada/alfabetizar" onde a pergunta diz
+# "alfabetização" — sem isso, o casamento exato perde conteúdo real.)
+_FAMILIAS = [
+    ["alfabetizacao", "alfabetizar", "alfabetizada", "alfabetizado",
+     "alfabetizadas", "alfabetizados", "analfabetismo"],
+    ["educacao", "educar", "educacional", "educacionais", "educador", "educadores"],
+    ["trabalho", "trabalhar", "trabalhador", "trabalhadores",
+     "trabalhista", "trabalhistas"],
+    ["professor", "professores", "professora", "professoras",
+     "docente", "docentes"],
+    ["salario", "salarios", "salarial", "salariais"],
+    ["escola", "escolas", "escolar", "escolares"],
+]
+for _fam in _FAMILIAS:
+    for _t in _fam:
+        SINONIMOS[_t] = sorted(set(SINONIMOS.get(_t, [])) | set(_fam))
+
+
+# Ponte para tema amplo: termo específico ausente nos planos -> oferta do
+# tema que os planos comprovadamente cobrem (só dispara em NÃO ENCONTRADO).
+PONTES_TEMA = {
+    "merenda": "a educação",
+    "vestibular": "a educação",
+    "sisu": "a educação",
+    "enem": "a educação",
+    "farmacia": "a saúde",
+    "upa": "a saúde",
+    "presidio": "a segurança pública",
+    "presidios": "a segurança pública",
+}
+
+
+def _ponte_tema(pergunta: str) -> tuple[str, str] | None:
+    """(palavra do usuário, tema amplo) se houver ponte; None caso contrário."""
+    for original in re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿ0-9]+", pergunta):
+        if _sem_acento(original.lower()) in PONTES_TEMA:
+            return original, PONTES_TEMA[_sem_acento(original.lower())]
+    return None
+
+
 def _tokenizar_pergunta(pergunta: str) -> list[str]:
     base = [t for t in _tokenizar(pergunta) if t not in IGNORAR_NA_PERGUNTA]
     expandidos: list[str] = list(base)
@@ -749,7 +790,11 @@ def _cobre_essencial(texto: str, essenciais: set[str]) -> bool:
     return bool(set(_tokenizar(texto)) & essenciais)
 
 
-def _resposta_negativa(meta: dict) -> str:
+def _resposta_negativa(meta: dict, ponte: tuple[str, str] | None = None) -> str:
+    if ponte:
+        termo, tema = ponte
+        return (f"O plano de governo de {meta['nome']} não menciona '{termo}' diretamente. "
+                f"Você gostaria de saber mais sobre o que o plano propõe para {tema}?")
     return (f"O plano de governo de {meta['nome']} não trata desse tema no "
             f"documento oficial registrado no TSE.")
 
@@ -779,7 +824,7 @@ def responder_candidato(pergunta: str, candidato_id: str, usar_ia: bool = True,
             "candidato_id": candidato_id,
             "candidato": meta["nome"],
             "partido": meta["partido"],
-            "resposta": _resposta_negativa(meta),
+            "resposta": _resposta_negativa(meta, _ponte_tema(pergunta)),
             "via": "busca-local",
             "veredito": veredito,
             "fontes": [],
@@ -808,7 +853,7 @@ def responder_candidato(pergunta: str, candidato_id: str, usar_ia: bool = True,
             "candidato_id": candidato_id,
             "candidato": meta["nome"],
             "partido": meta["partido"],
-            "resposta": _resposta_negativa(meta),
+            "resposta": _resposta_negativa(meta, _ponte_tema(pergunta)),
             "via": via,
             "veredito": "nao_encontrado",
             "fontes": [],

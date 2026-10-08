@@ -270,5 +270,48 @@ class TestCapitalizacao(unittest.TestCase):
             )
 
 
+class TestEquivalencia(unittest.TestCase):
+    def test_alfabetizacao_encontra_variacoes_morfologicas(self):
+        """Alfabetização ↔ alfabetizar/alfabetizada: ambos os planos têm."""
+        r = responder(
+            "O que os planos dizem sobre alfabetização?",
+            modo="comparar", usar_ia=False,
+        )
+        for item in r["respostas"]:
+            with self.subTest(candidato=item["candidato_id"]):
+                self.assertEqual(item["veredito"], "encontrado")
+                self.assertIn("lfabetiz", item["resposta"].lower())
+                self.assertNotIn("....", item["resposta"])
+
+    def test_ponte_para_tema_amplo(self):
+        r = responder(
+            "O que os planos dizem sobre merenda escolar?",
+            modo="comparar", usar_ia=False,
+        )
+        for item in r["respostas"]:
+            with self.subTest(candidato=item["candidato_id"]):
+                self.assertEqual(item["veredito"], "nao_encontrado")
+                self.assertIn("Você gostaria", item["resposta"])
+                self.assertIn("educação", item["resposta"])
+                self.assertNotIn("reformul", item["resposta"].lower())
+
+    def test_ponte_preserva_acentuacao(self):
+        r = responder(
+            "O que os planos dizem sobre presídio?",
+            modo="flavio", usar_ia=False,
+        )
+        item = r["respostas"][0]
+        self.assertIn("'presídio'", item["resposta"])
+        self.assertIn("segurança pública", item["resposta"])
+
+    def test_sem_ponte_sem_oferta(self):
+        r = responder(
+            "O que os planos propõem sobre exploração de Marte?",
+            modo="comparar", usar_ia=False,
+        )
+        for item in r["respostas"]:
+            self.assertNotIn("Você gostaria", item["resposta"])
+
+
 if __name__ == "__main__":
     unittest.main()
