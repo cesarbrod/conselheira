@@ -801,6 +801,10 @@ def _singularizar(token: str) -> list[str]:
             saidas.append(token[:-2] + "l")  # animais -> animal
         else:
             saidas.append(token[:-1])
+        if re.search(r"[bcdfghjklmnpqrstvwxz]es$", token):
+            sem_es = token[:-2]  # mulheres -> mulher; meses -> mes
+            if sem_es not in saidas:
+                saidas.append(sem_es)
     return saidas
 
 
@@ -964,6 +968,10 @@ def dimensoes_perfil(pergunta: str) -> list[str]:
         dims.append("O que o plano propõe para programas sociais?")
     if tem(r"aluguel|morad|habitacao|minha casa|casa propria"):
         dims.append("O que o plano propõe para habitação e moradia?")
+    if tem(r"animal|animais|\bpet\b|cao\b|gato|cachorro|protetor|cuidador|castracao|maus.tratos"):
+        dims.append("O que o plano propõe para proteção aos animais?")
+    if tem(r"mulher|mae\b|matern|genero|femin|solteira"):
+        dims.append("O que o plano propõe para as mulheres?")
     dims = list(dict.fromkeys(dims))
     return dims or ["O que o plano propõe para programas sociais?"]
 

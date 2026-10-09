@@ -171,9 +171,10 @@ original no portal do TSE** antes de formar sua opinião ou compartilhar.
 ## Histórico de alterações recentes
 
 - **Modo perfil** — pergunta pessoal ("qual plano mais me atende?") detectada,
-  decomposta em dimensões temáticas e respondida por dimensão, com conselheira
-  comparativa neutra (mapeia relevância, nunca endossa; endosso cai para
-  revisão local); 26 testes dourados offline em `test_chatbot.py`.
+  decomposta em dimensões temáticas (incl. proteção animal e mulheres) e
+  respondida por dimensão, com conselheira comparativa neutra (mapeia
+  relevância, nunca endossa; endosso cai para revisão local); 28 testes
+  dourados offline em `test_chatbot.py`.
 - **Temas sugeridos auditados** — 12 sugestões com veredito apurado (saúde+SUS,
   aposentadoria e idosos, salário mínimo, programas sociais, Farmácia Popular…);
   pergunta-morta ("não trata") virou divergência honesta ou foi reformulada;

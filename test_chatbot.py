@@ -409,5 +409,27 @@ class TestModoPerfil(unittest.TestCase):
         self.assertNotIn("Vote", cons["texto"])
 
 
+    def test_cuidadora_animais_dimensoes_e_vereditos(self):
+        import chatbot as _cb
+        pergunta = ("Sou uma mulher solteira, de 24 anos, protetora e cuidadora "
+                    "de animais em situação de risco. Qual plano de governo é "
+                    "melhor para mim?")
+        self.assertTrue(_cb.eh_pergunta_perfil(pergunta))
+        dims = _cb.dimensoes_perfil(pergunta)
+        self.assertTrue(any("animais" in d for d in dims))
+        self.assertTrue(any("mulheres" in d for d in dims))
+        r = responder(pergunta, modo="comparar", usar_ia=False)
+        v = {i["candidato_id"]: i["vereditos_dimensoes"] for i in r["respostas"]}
+        self.assertEqual(v["lula"]["proteção aos animais"], "encontrado")
+        self.assertEqual(v["flavio"]["proteção aos animais"], "nao_encontrado")
+        self.assertEqual(v["lula"]["as mulheres"], "encontrado")
+        self.assertEqual(v["flavio"]["as mulheres"], "encontrado")
+
+    def test_singular_consoante_es(self):
+        import chatbot as _cb
+        self.assertIn("mulher", _cb._singularizar("mulheres"))
+        self.assertIn("trabalhador", _cb._singularizar("trabalhadores"))
+
+
 if __name__ == "__main__":
     unittest.main()
