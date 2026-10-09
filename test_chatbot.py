@@ -342,5 +342,72 @@ class TestTemasSugeridos(unittest.TestCase):
                     (v["lula"], v["flavio"]), self.ESPERADO[tema])
 
 
+class TestModoPerfil(unittest.TestCase):
+    PERGUNTAS = [
+        ("Sou uma pessoa da classe trabalhadora, com 63 anos, desempregado. "
+         "Qual plano de governo mais me atende?",
+         ["aposentadoria e idosos", "emprego e trabalho", "programas sociais"]),
+        ("Tenho filhos em idade escolar e não ganho o suficiente para poder "
+         "estar em casa com eles. Qual plano leva isso em consideração?",
+         ["educação", "programas sociais", "salário mínimo"]),
+        ("Quero entrar na faculdade, mas não tenho dinheiro sequer para o "
+         "transporte, qual dos planos pode me ajudar?",
+         ["educação superior", "programas sociais"]),
+    ]
+
+    def test_detector(self):
+        import chatbot as _cb
+        for pergunta, _ in self.PERGUNTAS:
+            with self.subTest(pergunta=pergunta[:40]):
+                self.assertTrue(_cb.eh_pergunta_perfil(pergunta))
+        self.assertFalse(_cb.eh_pergunta_perfil(
+            "O que cada candidato propõe para a saúde?"))
+        self.assertFalse(_cb.eh_pergunta_perfil(
+            "Qual plano melhor garante a aposentadoria dos trabalhadores?"))
+
+    def test_dimensoes(self):
+        import chatbot as _cb
+        for pergunta, esperadas in self.PERGUNTAS:
+            with self.subTest(pergunta=pergunta[:40]):
+                dims = _cb.dimensoes_perfil(pergunta)
+                for esp in esperadas:
+                    self.assertTrue(
+                        any(esp in d for d in dims),
+                        f"{esp!r} ausente em {dims}",
+                    )
+
+    def test_resposta_perfil_offline(self):
+        pergunta = self.PERGUNTAS[0][0]
+        r = responder(pergunta, modo="comparar", usar_ia=False)
+        self.assertTrue(r.get("perfil"))
+        self.assertIn("aposentadoria e idosos", r.get("dimensoes", []))
+        for item in r["respostas"]:
+            self.assertEqual(item["veredito"], "encontrado")
+            self.assertIn("Sobre ", item["resposta"])
+            self.assertTrue(item["fontes"])
+        self.assertEqual(len(r["conselheira"]["texto"].splitlines()), 3)
+
+    def test_endosso_cai_para_revisao(self):
+        import chatbot as _cb
+        original = _cb._ollama_prompt
+        chamadas = []
+
+        def stub(prompt: str):
+            if "SITUAÇÃO APURADA" in prompt or "própria situação" in prompt:
+                chamadas.append(prompt)
+                return ("Primeira linha.\nVote no Lula, é o melhor.\nTerceira linha.")
+            return ("O plano prevê ProPatinhas e Auxílio Brasil para o seu caso.")
+
+        _cb._ollama_prompt = stub
+        try:
+            r = responder(self.PERGUNTAS[0][0], modo="comparar",
+                          usar_ia=True, usar_ollama=True)
+        finally:
+            _cb._ollama_prompt = original
+        cons = r["conselheira"]
+        self.assertEqual(cons["via"], "busca-local (revisão)")
+        self.assertNotIn("Vote", cons["texto"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -69,6 +69,10 @@ def imprimir_quebrado(texto: str, largura: int | None = None):
 
 def mostrar_resposta(resultado: dict):
     largura = largura_util()
+    if resultado.get("perfil") and resultado.get("dimensoes"):
+        print()
+        imprimir_quebrado("(perfil detectado — dimensões analisadas: "
+                          + "; ".join(resultado["dimensoes"]) + ")", largura)
     for item in resultado["respostas"]:
         meta = CANDIDATOS[item["candidato_id"]]
         print(f"\n{meta['icone']} {meta['curto']}\n")

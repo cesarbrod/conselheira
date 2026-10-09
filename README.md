@@ -39,6 +39,9 @@ Recursos:
 - ✅ Sugestões de perguntas por tema (saúde, educação, segurança, economia…)
 - ✅ Formatação que respeita a largura do terminal + quebra segura na web
 - ✅ Histórico da conversa (terminal e web)
+- ✅ Modo perfil: pergunta pessoal aberta ("sou desempregado aos 63 anos…")
+  é decomposta em temas (aposentadoria, trabalho, programas sociais…) com
+  resposta por dimensão e comparativo neutro — sem indicar voto
 
 ## Instalação da Conselheira
 
@@ -167,6 +170,10 @@ original no portal do TSE** antes de formar sua opinião ou compartilhar.
 
 ## Histórico de alterações recentes
 
+- **Modo perfil** — pergunta pessoal ("qual plano mais me atende?") detectada,
+  decomposta em dimensões temáticas e respondida por dimensão, com conselheira
+  comparativa neutra (mapeia relevância, nunca endossa; endosso cai para
+  revisão local); 26 testes dourados offline em `test_chatbot.py`.
 - **Temas sugeridos auditados** — 12 sugestões com veredito apurado (saúde+SUS,
   aposentadoria e idosos, salário mínimo, programas sociais, Farmácia Popular…);
   pergunta-morta ("não trata") virou divergência honesta ou foi reformulada;

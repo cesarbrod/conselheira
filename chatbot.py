@@ -364,11 +364,12 @@ def _finalizar_resposta(texto: str, meta: dict, trechos: list["Trecho"]) -> str:
     return texto
 
 
-def _chamar_openai(pergunta: str, contexto: str, candidato_nome: str) -> str | None:
+def _chamar_openai(pergunta: str, contexto: str, candidato_nome: str,
+                   prompt_fn=None) -> str | None:
     key = os.getenv("OPENAI_API_KEY", "").strip()
     if not key:
         return None
-    return _openai_prompt(_prompt_rag(pergunta, contexto, candidato_nome))
+    return _openai_prompt((prompt_fn or _prompt_rag)(pergunta, contexto, candidato_nome))
 
 
 def _openai_prompt(prompt: str) -> str | None:
@@ -450,13 +451,14 @@ def ollama_modelo_ativo() -> str | None:
     return modelos[0] if modelos else None
 
 
-def _chamar_ollama(pergunta: str, contexto: str, candidato_nome: str) -> str | None:
+def _chamar_ollama(pergunta: str, contexto: str, candidato_nome: str,
+                   prompt_fn=None) -> str | None:
     model = ollama_modelo_ativo()
     if not model:
         _avisar_ia_uma_vez("Ollama fora do ar ou sem modelos instalados "
                            f"({_ollama_base()}; rode `ollama pull <modelo>` e `ollama serve`)")
         return None
-    return _ollama_prompt(_prompt_rag(pergunta, contexto, candidato_nome))
+    return _ollama_prompt((prompt_fn or _prompt_rag)(pergunta, contexto, candidato_nome))
 
 
 def _ollama_prompt(prompt: str) -> str | None:
@@ -610,6 +612,34 @@ def _conselheira_contradiz_vereditos(texto: str, itens: list[dict]) -> bool:
     return bool(opostos and _PADRAO_CONVERGENCIA_FALSA.search(texto))
 
 
+def _prompt_conselheira_perfil(situacao: str, resumos: str) -> str:
+    return (
+        f"Você é uma conselheira eleitoral neutra. Uma pessoa comum, que não leu "
+        f"os planos de governo, descreve a própria situação assim: \"{situacao}\"\n"
+        f"Em EXATAMENTE 3 linhas, diga: primeira = o que cada plano oferece para o "
+        f"caso dela; segunda = a diferença entre os planos que mais pesa para este "
+        f"perfil; terceira = o que ela deve conferir nos documentos antes de decidir. "
+        f"PROIBIDO indicar voto, dizer qual plano é melhor ou escolher por ela — "
+        f"apresente os pontos e deixe a decisão com ela; PROIBIDO 'Linha 1', números "
+        f"ou marcadores. Responda em português, no máximo {LIMITE_CONSELHEIRA} "
+        f"caracteres, sem propaganda.\n\nRESPOSTAS DOS PLANOS:\n{resumos}"
+    )
+
+
+def _opniao_local_perfil(itens: list[dict], mapa: dict) -> str:
+    a, b = itens[0], itens[1]
+    ambos = [t for t, vs in mapa.items()
+             if vs.get(a["candidato_id"]) == "encontrado"
+             and vs.get(b["candidato_id"]) == "encontrado"]
+    parciais = [t for t in mapa if t not in ambos]
+    l1 = (f"Para o seu caso, há propostas nos dois planos sobre: {', '.join(ambos)}."
+          if ambos else "Para o seu caso, os planos cobrem parcialmente os temas.")
+    l2 = (f"Só um dos lados trata de: {', '.join(parciais)} — confira o plano indicado."
+          if parciais else "A diferença está no detalhe: compare os trechos citados de cada lado.")
+    l3 = "A decisão é sua: leia os trechos nas páginas citadas antes de escolher."
+    return f"{l1}\n{l2}\n{l3}"
+
+
 def _limpar_rotulo_conselheira(linha: str) -> str:
     """Remove prefixos que o LLM insiste em pôr: 'Linha 1:', '1.', '- ', etc."""
     linha = linha.strip(" \t-•*=")
@@ -711,23 +741,27 @@ def _opniao_local(itens: list[dict]) -> str:
     return f"{l1}\n{l2}\n{l3}"
 
 
-def _opniao_conselheira(itens: list[dict], usar_ia: bool, usar_ollama: bool) -> dict:
-    """Leitura política em 3 linhas: via LLM quando há IA, heurística honesta senão."""
+def _opniao_conselheira(itens: list[dict], usar_ia: bool, usar_ollama: bool,
+                        perfil: dict | None = None) -> dict:
+    """Leitura em 3 linhas: via LLM quando há IA, heurística honesta senão."""
     comparativo = len(itens) > 1
     resumos = "\n\n".join(
         f"{CANDIDATOS[i['candidato_id']]['curto']}: "
         f"{i['resposta'].rsplit('Plano de Governo, páginas', 1)[0].strip()}"
         for i in itens
     )
+    local_fn = (_opniao_local_perfil(itens, perfil["dimensoes"])
+                if perfil else None)
     texto, via = None, "busca-local"
     if any(i.get("veredito") == "nao_encontrado" for i in itens):
-        # Ausência de conteúdo é fato apurado, não interpretação: a LLM só
-        # sintetiza quando há conteúdo (dos dois lados, ou do lado pedido).
-        # Sem isso, qualquer moldura "convergem/divergem" vira alucinação
-        # ("Ambos buscam/mencionam..." com um plano omisso).
-        texto, via = _opniao_local(itens), "busca-local (veredito)"
+        # Ausência de conteúdo é fato apurado, não interpretação (vale para
+        # modo temático e modo perfil): a LLM só sintetiza quando há conteúdo.
+        texto, via = (local_fn if perfil is not None else _opniao_local(itens)), "busca-local (veredito)"
     elif usar_ia:
-        prompt = _prompt_conselheira(resumos, comparativo, _bloco_vereditos(itens))
+        if perfil is not None:
+            prompt = _prompt_conselheira_perfil(perfil["situacao"], resumos)
+        else:
+            prompt = _prompt_conselheira(resumos, comparativo, _bloco_vereditos(itens))
         if usar_ollama:
             texto = _ollama_prompt(prompt)
             if texto:
@@ -741,8 +775,11 @@ def _opniao_conselheira(itens: list[dict], usar_ia: bool, usar_ollama: bool) -> 
                 if texto:
                     via = "gemini"
     if not texto:
-        texto = _opniao_local(itens)
-    elif _conselheira_contradiz_vereditos(texto, itens):
+        texto = local_fn if perfil is not None else _opniao_local(itens)
+    elif _PADRAO_ENDOSSO.search(texto):
+        # Endosso de candidato ("vote em..."): nunca vai ao ar.
+        texto, via = (local_fn if perfil is not None else _opniao_local(itens)), "busca-local (revisão)"
+    elif perfil is None and _conselheira_contradiz_vereditos(texto, itens):
         # A LLM afirmou conteúdo comum com um lado NÃO ENCONTRADO
         # (ex.: "Ambos mencionam leis...") -> descarta e usa leitura local,
         # que segue os vereditos deterministicamente.
@@ -881,6 +918,167 @@ def responder_candidato(pergunta: str, candidato_id: str, usar_ia: bool = True,
     }
 
 
+# ---------------- Modo perfil (perguntas pessoais abertas) ----------------
+
+# Perguntas de quem descreve a própria situação ("sou..., tenho..., quero...")
+# e pede qual plano atende: exigem decomposição em temas, não âncora única.
+_MARCAS_PESSOA = _norm_set(
+    "sou tenho quero preciso moro ganho trabalho estou fui era me meu minha "
+    "meus minhas comigo desempregado desempregada aposentado aposentada"
+)
+
+
+def eh_pergunta_perfil(pergunta: str) -> bool:
+    low = _sem_acento(pergunta.lower())
+    if not re.search(r"qual (plano|dos planos)", low):
+        return False
+    toks = set(re.findall(r"[a-z0-9]+", low))
+    if toks & _MARCAS_PESSOA:
+        return True
+    return bool(re.search(r"\b\d{2,3}\s*anos\b", low))
+
+
+def dimensoes_perfil(pergunta: str) -> list[str]:
+    """Decompõe a situação de vida em sub-perguntas temáticas (com ordem)."""
+    low = _sem_acento(pergunta.lower())
+
+    def tem(padrao: str) -> bool:
+        return bool(re.search(padrao, low))
+
+    dims: list[str] = []
+    if tem(r"aposent|idoso|terceira idade|\b[6-9]\d\s*anos|60\s*\+"):
+        dims.append("O que o plano propõe para aposentadoria e idosos?")
+    if tem(r"desempreg|sem emprego|sem trabalho|procuro|desocupad"):
+        dims += ["O que o plano propõe sobre emprego e trabalho?",
+                 "O que o plano propõe para programas sociais?"]
+    if tem(r"filh|crianca|escola|creche|adolescente"):
+        dims += ["O que o plano propõe para educação?",
+                 "O que o plano propõe para programas sociais?"]
+    if tem(r"faculdade|universidade|ensino superior|enem|vestibular|estudar|estudo"):
+        dims.append("O que o plano propõe para educação superior?")
+    if tem(r"salari|ganh|pagam|renda|sustent|contas|despesa"):
+        dims.append("O que o plano propõe para o salário mínimo?")
+    if tem(r"saude|doen|hospital|remedio|medico|\bsus\b"):
+        dims.append("O que o plano propõe para a saúde?")
+    if tem(r"dinheiro|sem condicoes|pobre|pobreza|fome|comida"):
+        dims.append("O que o plano propõe para programas sociais?")
+    if tem(r"aluguel|morad|habitacao|minha casa|casa propria"):
+        dims.append("O que o plano propõe para habitação e moradia?")
+    dims = list(dict.fromkeys(dims))
+    return dims or ["O que o plano propõe para programas sociais?"]
+
+
+def _tema_curto(subq: str) -> str:
+    t = re.sub(r"^O que o plano propõe (para|sobre) ", "", subq).rstrip("?")
+    return t
+
+
+def _prompt_perfil(pergunta: str, contexto: str, candidato_nome: str) -> str:
+    return (
+        f"Você é uma conselheira eleitoral neutra e imparcial. Uma pessoa comum, "
+        f"que não leu os planos de governo, descreve a própria situação assim: "
+        f"\"{pergunta}\"\n"
+        f"Com base ESTRITAMENTE no contexto oficial do plano de governo de "
+        f"{candidato_nome} (TSE, Eleições 2026) abaixo, explique em português, em "
+        f"texto único de no MÁXIMO {LIMITE_RESPOSTA} caracteres, quais propostas "
+        f"ATÊNDEM à situação dela, dimensão por dimensão, citando as páginas entre "
+        f"parênteses. Se alguma dimensão não tiver proposta correspondente, diga "
+        f"isso claramente e não invente; sem propaganda; NUNCA diga em quem votar "
+        f"nem qual plano é melhor — a decisão é dela; fale como 'o plano de "
+        f"{candidato_nome}'; nunca mencione trechos ou contexto.\n\n"
+        f"CONTEXTO:\n{contexto}"
+    )
+
+
+# Endosso de candidato: a conselheira mapeia relevância, nunca escolhe.
+_PADRAO_ENDOSSO = re.compile(
+    r"(?i)\b(vote|votem|votar (em|no)|escolha (o|este|esse|no) plano|"
+    r"recomendo|o melhor plano [ée]|deve votar|apoie o plano)\b"
+)
+
+
+def responder_candidato_perfil(pergunta: str, candidato_id: str,
+                               dimensoes: list[str], usar_ia: bool = True,
+                               usar_ollama: bool = False) -> dict:
+    base = get_base()
+    meta = CANDIDATOS[candidato_id]
+    blocos: list[tuple[str, list[Trecho]]] = []
+    for d in dimensoes:
+        trechos = base.buscar(d, candidato_id=candidato_id, top_k=2)
+        essenciais = _termos_essenciais(d, base)
+        blocos.append((d, [t for t in trechos if _cobre_essencial(t.texto, essenciais)]))
+    achados = [(d, tr) for d, tr in blocos if tr]
+    vereditos_dim = {_tema_curto(d): ("encontrado" if tr else "nao_encontrado")
+                     for d, tr in blocos}
+    veredito = "encontrado" if achados else "nao_encontrado"
+    todos_trechos = [t for _, tr in achados for t in tr]
+    if not achados:
+        return {
+            "candidato_id": candidato_id,
+            "candidato": meta["nome"],
+            "partido": meta["partido"],
+            "resposta": (f"Nenhum trecho dos temas relacionados à sua situação foi "
+                         f"localizado no plano de governo de {meta['nome']}, documento "
+                         f"oficial registrado no TSE."),
+            "via": "busca-local",
+            "veredito": veredito,
+            "vereditos_dimensoes": vereditos_dim,
+            "fontes": [],
+        }
+    contexto = "\n\n".join(
+        f"### {_tema_curto(d)}\n" + "\n---\n".join(
+            f"[p. {t.pag_inicio}-{t.pag_fim}]\n{t.texto[:1500]}" for t in tr)
+        for d, tr in achados
+    )
+    texto, via = None, "busca-local"
+    if usar_ollama and usar_ia:
+        texto = _chamar_ollama(pergunta, contexto, meta["nome"],
+                               prompt_fn=_prompt_perfil)
+        if texto:
+            via = f"ollama:{ollama_modelo_ativo()}"
+    elif usar_ia:
+        prompt = _prompt_perfil(pergunta, contexto, meta["nome"])
+        texto = _chamar_openai(pergunta, contexto, meta["nome"],
+                               prompt_fn=_prompt_perfil)
+        if texto:
+            via = "openai"
+        else:
+            texto = _gemini_prompt(prompt)
+            if texto:
+                via = "gemini"
+    if texto and _PADRAO_ENDOSSO.search(texto):
+        texto, via = None, "busca-local"  # cai para a extrativa abaixo
+    if not texto:
+        qtoks = _tokenizar_pergunta(pergunta)
+        partes = []
+        for d, tr in achados:
+            rec = _melhor_recorte(" ".join(t.texto for t in tr), qtoks, 500)
+            partes.append(f"Sobre {_tema_curto(d)}: {rec}")
+        texto = _limitar_texto(" ".join(partes))
+    texto = _finalizar_resposta(texto, meta, todos_trechos)
+    vistos: set[str] = set()
+    fontes = []
+    for t in todos_trechos:
+        rotulo = f"{t.pag_inicio}-{t.pag_fim}"
+        if rotulo in vistos:
+            continue
+        vistos.add(rotulo)
+        fontes.append({"paginas": rotulo,
+                       "trecho": t.texto[:500] + ("…" if len(t.texto) > 500 else ""),
+                       "pdf": meta["arquivo_pdf"],
+                       "tse_url": meta["tse_url"]})
+    return {
+        "candidato_id": candidato_id,
+        "candidato": meta["nome"],
+        "partido": meta["partido"],
+        "resposta": texto,
+        "via": via,
+        "veredito": veredito,
+        "vereditos_dimensoes": vereditos_dim,
+        "fontes": fontes,
+    }
+
+
 def responder(pergunta: str, modo: str = "comparar", usar_ia: bool = True,
               usar_ollama: bool = False) -> dict:
     """modo: 'comparar' | 'lula' | 'flavio'"""
@@ -888,17 +1086,35 @@ def responder(pergunta: str, modo: str = "comparar", usar_ia: bool = True,
     if modo in ("ambos", "comparativo", "comparacao", "comparação"):
         modo = "comparar"
     itens = []
+    perfil_info = None
     if modo == "comparar":
-        itens = [responder_candidato(pergunta, "lula", usar_ia, usar_ollama=usar_ollama),
-                 responder_candidato(pergunta, "flavio", usar_ia, usar_ollama=usar_ollama)]
+        if eh_pergunta_perfil(pergunta):
+            dims = dimensoes_perfil(pergunta)
+            itens = [responder_candidato_perfil(pergunta, "lula", dims, usar_ia,
+                                                usar_ollama=usar_ollama),
+                     responder_candidato_perfil(pergunta, "flavio", dims, usar_ia,
+                                                usar_ollama=usar_ollama)]
+            mapa: dict[str, dict[str, str]] = {}
+            for i in itens:
+                for tema, v in i.get("vereditos_dimensoes", {}).items():
+                    mapa.setdefault(tema, {})[i["candidato_id"]] = v
+            perfil_info = {"situacao": pergunta, "dimensoes": mapa}
+        else:
+            itens = [responder_candidato(pergunta, "lula", usar_ia, usar_ollama=usar_ollama),
+                     responder_candidato(pergunta, "flavio", usar_ia, usar_ollama=usar_ollama)]
     elif modo in CANDIDATOS:
         itens = [responder_candidato(pergunta, modo, usar_ia, usar_ollama=usar_ollama)]
     else:
         itens = [responder_candidato(pergunta, "lula", usar_ia, usar_ollama=usar_ollama),
                  responder_candidato(pergunta, "flavio", usar_ia, usar_ollama=usar_ollama)]
         modo = "comparar"
-    conselheira = _opniao_conselheira(itens, usar_ia, usar_ollama)
-    return {"pergunta": pergunta, "modo": modo, "respostas": itens, "conselheira": conselheira}
+    conselheira = _opniao_conselheira(itens, usar_ia, usar_ollama, perfil=perfil_info)
+    resultado = {"pergunta": pergunta, "modo": modo, "respostas": itens,
+                 "conselheira": conselheira}
+    if perfil_info is not None:
+        resultado["perfil"] = True
+        resultado["dimensoes"] = list(perfil_info["dimensoes"])
+    return resultado
 
 
 def detectar_modo(pergunta: str) -> str:
