@@ -51,6 +51,12 @@
   blockquote { border-left:3px solid var(--orange); background:var(--paper-warm); margin:10px 0; padding:10px 14px; border-radius:0 8px 8px 0; color:var(--ink); font-size:.86rem; overflow-wrap:break-word; word-wrap:break-word; word-break:normal; }
   footer { text-align:center; background:var(--paper); color:var(--ink-soft); font-size:.82rem; padding:28px 20px 36px; border-top:1px solid var(--ring-soft); }
   footer code { font-family:'JetBrains Mono', monospace; font-size:.75rem; background:var(--paper-warm); border:1px solid var(--ring-soft); border-radius:6px; padding:1px 6px; }
+  .loading { display:flex; align-items:center; gap:12px; }
+  .hourglass { display:inline-block; font-size:1.3rem; line-height:1; animation:gira-ampulheta 1.6s ease-in-out infinite; transform-origin:50% 50%; }
+  @keyframes gira-ampulheta { 0% { transform:rotate(0deg); } 50% { transform:rotate(180deg); } 100% { transform:rotate(360deg); } }
+  .dots::after { content:''; display:inline-block; min-width:1.2em; text-align:left; animation:pontinhos 1.2s steps(4) infinite; }
+  @keyframes pontinhos { 0% { content:''; } 25% { content:'.'; } 50% { content:'..'; } 75% { content:'...'; } }
+  @media (prefers-reduced-motion: reduce) { .hourglass, .dots::after { animation:none; } .dots::after { content:'...'; } }
 </style>
 </head>
 <body>
@@ -126,7 +132,8 @@ async function enviar(){
   const modo = document.getElementById('modo').value;
   const usar_ollama = document.getElementById('usar_ollama').checked;
   addUser(pergunta); input.value='';
-  const load = document.createElement('div'); load.className='card'; load.textContent='⏳ Buscando nos planos oficiais…';
+  const load = document.createElement('div'); load.className='card loading'; load.setAttribute('role','status');
+  load.innerHTML = '<span class="hourglass" aria-hidden="true">⏳</span><span>Buscando nos planos oficiais<span class="dots" aria-hidden="true"></span></span>';
   chat.appendChild(load); load.scrollIntoView({behavior:'smooth'});
   try {
     const r = await fetch('/api/perguntar', {method:'POST', headers:{'Content-Type':'application/json'},
