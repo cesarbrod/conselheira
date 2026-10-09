@@ -4,37 +4,53 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Conselheira 2026 — Planos de Governo (Lula x Flávio Bolsonaro)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#0f172a; --card:#1e293b; --acc:#22c55e; --acc2:#38bdf8; --txt:#e2e8f0; --mut:#94a3b8; }
+  :root {
+    --orange:#E55925; --orange-dark:#B8431A; --orange-tint:#FDEEE7;
+    --ink:#1A1A1A; --ink-soft:#5B5650;
+    --ring:#D9D9D9; --ring-soft:#EDECEA;
+    --paper:#FFFFFF; --paper-warm:#FAF8F5;
+    --radius:14px;
+  }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--txt); }
-  header { padding:20px; text-align:center; border-bottom:1px solid #334155; }
-  header h1 { margin:0 0 6px; font-size:1.4rem; }
-  header p { margin:4px 0; color:var(--mut); font-size:.9rem; }
-  header a, footer a { color:var(--acc2); }
-  .badge { display:inline-block; padding:2px 10px; border-radius:999px; font-size:.75rem; margin:2px;
-           background:#052e16; color:#86efac; border:1px solid #166534; }
-  .badge.off { background:#3f3f46; color:#d4d4d8; border-color:#52525b; }
-  main { max-width:900px; margin:0 auto; padding:16px; }
-  .controls { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; align-items:center; }
-  select, input[type=text] { background:#0b1220; color:var(--txt); border:1px solid #334155; border-radius:8px; padding:10px; }
+  body { margin:0; font-family:'Work Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--paper-warm); color:var(--ink); line-height:1.6; -webkit-font-smoothing:antialiased; }
+  h1, h2, h3 { font-family:'Space Grotesk', sans-serif; letter-spacing:-0.01em; }
+  :focus-visible { outline:3px solid var(--orange-dark); outline-offset:3px; }
+  header { padding:28px 20px 22px; text-align:center; background:var(--paper); border-bottom:1px solid var(--ring-soft); }
+  header h1 { margin:0 0 8px; font-size:1.5rem; font-weight:700; }
+  header p { margin:6px 0; color:var(--ink-soft); font-size:.92rem; }
+  header a, footer a, .card a { color:var(--orange-dark); text-decoration:none; border-bottom:2px solid transparent; transition:color .2s, border-color .2s; }
+  header a:hover, footer a:hover, .card a:hover { color:var(--ink); border-color:var(--orange); }
+  .badge { display:inline-block; padding:4px 12px; border-radius:999px; font-family:'JetBrains Mono', monospace; font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; margin:3px; background:var(--orange-tint); color:var(--orange-dark); border:1px solid transparent; }
+  .badge.off { background:var(--paper); color:var(--ink-soft); border-color:var(--ring); }
+  main { max-width:900px; margin:0 auto; padding:24px 20px 32px; }
+  .controls { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0; align-items:center; }
+  select, input[type=text] { background:var(--paper); color:var(--ink); border:1px solid var(--ring); border-radius:8px; padding:12px 14px; font-family:'Work Sans', sans-serif; font-size:.95rem; }
+  select:focus, input[type=text]:focus { border-color:var(--orange); outline:none; box-shadow:0 0 0 3px var(--orange-tint); }
   #pergunta { flex:1; min-width:220px; }
-  button { background:var(--acc); border:none; color:#052e16; font-weight:700; border-radius:8px; padding:10px 16px; cursor:pointer; }
-  button.ghost { background:transparent; color:var(--txt); border:1px solid #475569; font-weight:400; }
-  .temas { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 4px; }
-  .temas button { background:#0b1220; color:var(--acc2); border:1px solid #155e75; font-weight:400; font-size:.8rem; padding:6px 10px; }
-  #chat { display:flex; flex-direction:column; gap:12px; margin-top:12px; }
-  .msg-user { align-self:flex-end; background:#164e63; padding:10px 14px; border-radius:12px 12px 2px 12px; max-width:85%; }
-  .card { background:var(--card); border:1px solid #334155; border-radius:12px; padding:14px; }
-  .card h3 { margin:0 0 8px; font-size:1rem; }
-  .card h3 small { color:var(--mut); font-weight:400; }
-  .card p { white-space:pre-wrap; line-height:1.5; overflow-wrap:break-word; word-wrap:break-word; word-break:normal; hyphens:auto; }
-  .via { font-size:.72rem; color:var(--mut); }
-  details { margin-top:8px; font-size:.82rem; color:#cbd5e1; }
-  details summary { cursor:pointer; color:var(--acc2); }
-  blockquote { border-left:3px solid var(--acc); margin:8px 0; padding:6px 10px; color:#d1fae5; font-size:.85rem; overflow-wrap:break-word; word-wrap:break-word; word-break:normal; }
-  .msg-user { align-self:flex-end; background:#164e63; padding:10px 14px; border-radius:12px 12px 2px 12px; max-width:85%; overflow-wrap:break-word; }
-  footer { text-align:center; color:var(--mut); font-size:.78rem; padding:20px; }
+  button { display:inline-flex; align-items:center; gap:8px; font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:.95rem; background:var(--orange); border:none; color:#fff; border-radius:999px; padding:12px 24px; cursor:pointer; box-shadow:0 10px 24px -12px rgba(229,89,37,.55); transition:transform .15s ease, background .2s ease, border-color .2s ease; }
+  button:hover { background:var(--orange-dark); transform:translateY(-1px); }
+  button.ghost { background:transparent; color:var(--ink); border:1.5px solid var(--ring); box-shadow:none; font-weight:500; }
+  button.ghost:hover { border-color:var(--ink); background:var(--paper); }
+  .temas { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 4px; }
+  .temas button { background:var(--paper); color:var(--ink-soft); border:1px solid var(--ring-soft); box-shadow:none; font-family:'Work Sans', sans-serif; font-weight:500; font-size:.82rem; padding:8px 14px; }
+  .temas button:hover { border-color:var(--orange); color:var(--orange-dark); background:var(--orange-tint); transform:translateY(-1px); }
+  #chat { display:flex; flex-direction:column; gap:14px; margin-top:14px; }
+  .msg-user { align-self:flex-end; background:var(--ink); color:#fff; padding:10px 16px; border-radius:var(--radius) var(--radius) 4px var(--radius); max-width:85%; overflow-wrap:break-word; font-size:.93rem; }
+  .card { background:var(--paper); border:1px solid var(--ring-soft); border-radius:var(--radius); padding:20px 18px; box-shadow:0 1px 2px rgba(26,26,26,.04); }
+  .card h3 { margin:0 0 8px; font-size:1.05rem; }
+  .card h3 small { color:var(--ink-soft); font-weight:400; font-family:'Work Sans', sans-serif; }
+  .card p { white-space:pre-wrap; line-height:1.6; overflow-wrap:break-word; word-wrap:break-word; word-break:normal; hyphens:auto; color:var(--ink); }
+  .via { font-family:'JetBrains Mono', monospace; font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); }
+  details { margin-top:10px; font-size:.85rem; color:var(--ink-soft); }
+  details summary { cursor:pointer; color:var(--orange-dark); font-weight:500; }
+  details summary:hover { color:var(--ink); }
+  blockquote { border-left:3px solid var(--orange); background:var(--paper-warm); margin:10px 0; padding:10px 14px; border-radius:0 8px 8px 0; color:var(--ink); font-size:.86rem; overflow-wrap:break-word; word-wrap:break-word; word-break:normal; }
+  footer { text-align:center; background:var(--paper); color:var(--ink-soft); font-size:.82rem; padding:28px 20px 36px; border-top:1px solid var(--ring-soft); }
+  footer code { font-family:'JetBrains Mono', monospace; font-size:.75rem; background:var(--paper-warm); border:1px solid var(--ring-soft); border-radius:6px; padding:1px 6px; }
 </style>
 </head>
 <body>
