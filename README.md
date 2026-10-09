@@ -168,8 +168,18 @@ respostas são geradas **apenas** a partir dos documentos oficiais — trechos,
 páginas e links do TSE acompanham cada resposta. **Confira sempre o PDF
 original no portal do TSE** antes de formar sua opinião ou compartilhar.
 
+## Licença
+
+© 2026 BrodTec — [brodtec.com](https://brodtec.com).
+
+Este projeto é Software Livre, licenciado sob a
+[GNU General Public License v3.0 ou posterior](https://www.gnu.org/licenses/gpl-3.0.html)
+(veja o arquivo [LICENSE](LICENSE)).
+
 ## Histórico de alterações recentes
 
+- **Licença GPLv3+** — arquivo `LICENSE`, seção de licença no README e rodapé
+  da web com links para o repositório e a BrodTec.
 - **Modo perfil** — pergunta pessoal ("qual plano mais me atende?") detectada,
   decomposta em dimensões temáticas (incl. proteção animal e mulheres) e
   respondida por dimensão, com conselheira comparativa neutra (mapeia
